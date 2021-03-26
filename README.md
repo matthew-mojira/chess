@@ -1,6 +1,6 @@
 # chess
 
-Import this into Eclipse? I don't know...
+Import this into Eclipse: Right click --> Import --> Projects from folder or archive --> Import source (archive)
 
 The main method is included in the gui.Driver class. The oldgui class should be ignored.
 
