@@ -2,14 +2,18 @@ package engines;
 
 import java.util.Random;
 
-import game.Chess;
+import game.Board;
+import game.Side;
+import oldgui.Chess;
 
-public class RandomEngine implements Chessable {
+public class RandomEngine extends ChessEngine {
+
 
 	private static final int BREAK_THRESHOLD = 16777216; // after this many moves, we think there is stalemate or checkmate
 													// situation so stop the randomizer from making more moves
 
-	public RandomEngine() {
+	public RandomEngine(Board board, Side side) {
+		super(board, side);
 		// TODO Auto-generated constructor stub
 	}
 
@@ -19,11 +23,11 @@ public class RandomEngine implements Chessable {
 
 		 int counter = 1;
 		 
-         while (!Chess.board.move(r.nextInt(8), r.nextInt(8), r.nextInt(8), r.nextInt(8))) {
+         while (!board.move(r.nextInt(8), r.nextInt(8), r.nextInt(8), r.nextInt(8))) {
         	 counter++;
          }
          
-         System.out.println("It took " + counter + " attempts for the computer to find a valid move.");
+//         System.out.println("It took " + counter + " attempts for the computer to find a valid move.");
 
          
          

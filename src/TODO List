@@ -1,0 +1,15 @@
+To do:
+
+- Integrate the Chess clock properly (menu, reset button, consider against computer)
+	* BUG: the chess clock is slow.
+	* BUG: upon reset, the timer likes to lie to you
+	* BUG: if you set the things really high, it bugs out
+- untimed chess option
+- AI vs Ai set speed of simulation
+- Fix exceptions thrown when AI vs. AI hit reset button
+- replace the Move enum
+- Takeback moves
+- draw/resign
+- automatic draw by insufficient material
+
+* BUG: switching from AI vs AI to player causes freeze

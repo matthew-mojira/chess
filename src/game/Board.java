@@ -1,7 +1,8 @@
 package game;
 
+import static game.Side.*;
+
 import java.util.ArrayList;
-import static pieces.Side.*;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
@@ -10,7 +11,6 @@ import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 
 import game.Moveset.Move;
-import pieces.*;
 
 /**
  * 
@@ -19,43 +19,77 @@ import pieces.*;
  * @author Matthew
  *
  */
-public class Board implements Iterable<Piece> {
+public class Board implements Iterable<Piece>, Cloneable {
 
 	public static final int BOARD_SIZE = 8;
 	static final int A = 8, B = 7, C = 6, D = 5, E = 4, F = 3, G = 2, H = 1;
 
-	Piece[][] board;
-	Piece[][] boardBackup;
-	public Side sideToMove;
-	public int moveCounter;
+	private Piece[][] board;
+	private Piece[][] boardBackup;
+	private List<String> moveHistory;
+	private Side sideToMove;
+	private int moveCounter;
 
 	/**
 	 * Standard initializer. Will initialize the board with the regular formation of
 	 * pieces on the board.
 	 */
-	Board() {
+	public Board() {
 		board = new Piece[BOARD_SIZE][BOARD_SIZE];
 
 		sideToMove = WHITE;
 		moveCounter = 2; // lol. starts at 2????
+
+		moveHistory = new ArrayList<>();
 
 		// Standard initialization of the board.
 		initializePieces();
 	}
 
-	/**
-	 * Initializes the board but does not put pieces on it. You have to do that
-	 * yourself presumably.
-	 * 
-	 * @param b a flag that signifies that this constructor should be used. Other
-	 *          than that, this doesn't do anything.
-	 */
-	Board(boolean b) {
-		board = new Piece[BOARD_SIZE][BOARD_SIZE];
+	// TODO: MAKE A CONSTRUCTOR FOR A CUSTOM BOARD.
 
-		sideToMove = WHITE;
-		moveCounter = 2; // lol. starts at 2????
+	/**
+	 * Creates a deep copy of this board.
+	 * <p>
+	 * This deep copy is hopefully sufficient for chess engines to "test" moves.
+	 * Basically you could use this method to copy the current board, then make a
+	 * move on that, and then judge that board to ascertain whether that position is
+	 * favorable or not, without having to touch the real board, before submitting a
+	 * real move.
+	 */
+	@Override
+	public Board clone() {
+		Board clone = new Board();
+		clone.board = new Piece[BOARD_SIZE][BOARD_SIZE]; // empty the board.
+
+		for (int i = 0; i < BOARD_SIZE; i++) {
+			for (int j = 0; j < BOARD_SIZE; j++) {
+				try {
+					clone.set((Piece) board[i][j].cloneWithBenefits(clone), cc(j), cc(i));
+				} catch (NullPointerException e) {
+
+				}
+			}
+		}
+		clone.sideToMove = this.sideToMove;
+		clone.moveCounter = this.moveCounter;
+		clone.moveHistory = (List<String>) ((ArrayList) this.moveHistory).clone(); // WHAT ?!
+		return clone;
 	}
+
+//	/**
+//	 * Initializes the board but does not put pieces on it. You have to do that
+//	 * yourself presumably.
+//	 * 
+//	 * @param b a flag that signifies that this constructor should be used. Other
+//	 *          than that, this doesn't do anything.
+//	 */
+//	Board(boolean b) {
+//		board = new Piece[BOARD_SIZE][BOARD_SIZE];
+//
+//		sideToMove = WHITE;
+//		moveCounter = 2; // lol. starts at 2????
+//	}
 
 	/**
 	 * Converts a standard chess coordinate to the zero-based indexing system used
@@ -112,12 +146,6 @@ public class Board implements Iterable<Piece> {
 		set(new Rook(this, WHITE), H, 1);
 		set(new Rook(this, BLACK), A, 8);
 		set(new Rook(this, BLACK), H, 8);
-		
-//		set(new Princess(this, WHITE), A, 1);
-//		set(new Princess(this, WHITE), H, 1);
-//		set(new Princess(this, BLACK), A, 8);
-//		set(new Princess(this, BLACK), H, 8);
-
 
 		set(new King(this, WHITE), E, 1);
 		set(new King(this, BLACK), E, 8);
@@ -145,6 +173,10 @@ public class Board implements Iterable<Piece> {
 	 */
 	public Side getSideToMove() {
 		return sideToMove;
+	}
+
+	public int getMoveCount() {
+		return moveCounter;
 	}
 
 	private void updatePositions() {
@@ -195,9 +227,16 @@ public class Board implements Iterable<Piece> {
 	public List<Piece> getPiecesAttacking(int rank, int file) {
 		List<Piece> list = new ArrayList<>();
 		for (Piece p : this) {
-			if (p != null && p.isEnemy() && (p.generatePossibleMoves().get(rank, file).isLegal())) {
+			// special pawn case... it attacks differently than it moves
+			if (p != null && p.isEnemy() && p instanceof Pawn) {
+				int forward = (p.getSide() == Side.WHITE) ? -1 : 1;
+				if ((p.getRank() + forward == rank && p.getFile() - 1 == file)
+						|| (p.getRank() + forward == rank && p.getFile() + 1 == file))
+					list.add(p);
+			} else if (p != null && p.isEnemy() && (p.generatePossibleMoves().get(rank, file).isLegal())) {
 				list.add(p);
 			}
+
 		}
 		return list;
 //		throw new UnsupportedOperationException();
@@ -224,10 +263,17 @@ public class Board implements Iterable<Piece> {
 	public List<Piece> getPiecesDefending(int rank, int file) {
 		List<Piece> list = new ArrayList<>();
 		for (Piece p : this) {
-			if (p != null && p.isFriendly() && (p.generatePossibleMoves().get(rank, file).isLegal()
+			// special pawn case... it attacks differently than it moves
+			if (p != null && p.isFriendly() && p instanceof Pawn) {
+				int forward = (p.getSide() == Side.WHITE) ? -1 : 1;
+				if ((p.getRank() + forward == rank && p.getFile() - 1 == file)
+						|| (p.getRank() + forward == rank && p.getFile() + 1 == file))
+					list.add(p);
+			} else if (p != null && p.isFriendly() && (p.generatePossibleMoves().get(rank, file).isLegal()
 					|| p.generatePossibleMoves().get(rank, file) == Move.PROTECT)) {
 				list.add(p);
 			}
+
 		}
 		return list;
 //		throw new UnsupportedOperationException();
@@ -258,6 +304,16 @@ public class Board implements Iterable<Piece> {
 		return false;
 	}
 
+	private static String coordinatesConverter(int rank, int file) {
+		String c = getFileConverted(file);
+		c += 8 - rank;
+		return c;
+	}
+
+	private static String getFileConverted(int file) {
+		return Character.toString((char) ('a' + file));
+	}
+
 	/**
 	 * Checks the legality of a move and makes the move if it is legal.
 	 * 
@@ -273,6 +329,17 @@ public class Board implements Iterable<Piece> {
 	 * @param targetFile file of the target piece
 	 * @return true if the attempted move is legal, false otherwise
 	 */
+	/*
+	 * TODO: This method is unideal for a good number of reasons, and needs serious
+	 * refactoring. (1) The code that generates the string for the move (in
+	 * algebraic notation) is buried inside this method in different parts of thie
+	 * method. (2) The actual movement along the board is performed by the side
+	 * effect of the moveHelper(). Presumably, this is not good design and may also
+	 * be susceptible to unoptimized code. (3) For the promotion, using a GUI popup
+	 * witn this method is not at all a good idea, as we can't induce a chess
+	 * computer to decide what piece to promote (even if it is obvious).
+	 * 
+	 */
 	public boolean move(int originRank, int originFile, int targetRank, int targetFile) {
 		if (getPiece(originRank, originFile) == null) {
 			return false;
@@ -281,9 +348,69 @@ public class Board implements Iterable<Piece> {
 		Move thisMove = getPiece(originRank, originFile).generateValidMoves().get(targetRank, targetFile);
 
 //		System.out.println(Arrays.deepToString(getPiece(originRank, originFile).generatePossibleMoves().getBoard()));
+		/*
+		 * Move notator block info.
+		 */
+		String moveString = "";
 
 		Piece originPiece = getPiece(originRank, originFile);
 		Piece targetPiece = getPiece(targetRank, targetFile);
+
+		List<Piece> disambiguator = this.getPiecesDefending(targetRank, targetFile); // this is for the move notator.
+//		System.out.println("The length of the disambiguator is " + disambiguator.size());
+		Iterator<Piece> it = disambiguator.iterator();
+		while (it.hasNext()) {
+			Piece p = it.next();
+			if (!p.getClass().getSimpleName().equals(originPiece.getClass().getSimpleName())) {
+				it.remove();
+			}
+		}
+
+		moveString += originPiece.getMoveChar();
+
+//		System.out.println("The length of the disambiguator is " + disambiguator.size());
+
+		if (!(originPiece instanceof Pawn)) {
+			if (disambiguator.size() > 2) {
+				moveString += coordinatesConverter(originRank, originFile);
+			} else if (disambiguator.size() > 1) {
+				if (disambiguator.get(0).getFile() != disambiguator.get(1).getFile()) {
+					moveString += Character.toChars('a' + originPiece.getFile())[0];
+				} else { // ranks differ
+					moveString += 8 - originPiece.getRank();
+				}
+
+			}
+		}
+		///
+
+		///
+
+		switch (thisMove) {
+		case CAPTURE:
+		case CAPTURE_EN_PASSANT:
+			if (originPiece instanceof Pawn) {
+				moveString += getFileConverted(originFile);
+			}
+			moveString += "x" + coordinatesConverter(targetRank, targetFile);
+			moveString += (thisMove == Move.CAPTURE_EN_PASSANT) ? " e.p." : "";
+			break;
+
+		case CASTLE:
+			moveString = (targetFile == 0) ? "O-O-O" : "O-O";
+			break;
+
+		case MOVE:
+		case DOUBLE_MOVE:
+		case PROMOTE:
+			moveString += coordinatesConverter(targetRank, targetFile);
+			break;
+
+		default:
+			break;
+
+		}
+		///
 
 		if (thisMove.isLegal() && this.moveHelper(originRank, originFile, targetRank, targetFile)) {
 			// moveHelper() has the side effect of actually executing the move.
@@ -310,19 +437,35 @@ public class Board implements Iterable<Piece> {
 																														// promote.
 				JFrame frame = new JFrame();
 				String[] options = { "Queen", "Rook", "Bishop", "Knight" };
-				switch (JOptionPane.showOptionDialog(frame, "Promote this pawn:", "Promotion",
-						JOptionPane.DEFAULT_OPTION, JOptionPane.QUESTION_MESSAGE, null, options, options[0])) {
+				// TODO: THIS DIALOG SHOULD NOT BE IN THIS CLASS!!!
+				// we have a solution. it's not good, but it's better.
+
+//				System.out.println(Thread.currentThread().getStackTrace()[2].getClassName().equals("gui.GameBoardPanel$ChessTile$1"));	// lol!
+
+				int dialog;
+				if (Thread.currentThread().getStackTrace()[2].getClassName().equals("gui.GameBoardPanel$ChessTile$1")) {
+					dialog = JOptionPane.showOptionDialog(frame, "Promote this pawn:", "Promotion",
+							JOptionPane.DEFAULT_OPTION, JOptionPane.QUESTION_MESSAGE, null, options, options[0]);
+				} else {
+					dialog = 0;
+				}
+
+				switch (dialog) {
 				case 0:
 					board[targetRank][targetFile] = new Queen(this, sideToMove);
+					moveString += "Q";
 					break;
 				case 1:
 					board[targetRank][targetFile] = new Rook(this, sideToMove);
+					moveString += "R";
 					break;
 				case 2:
 					board[targetRank][targetFile] = new Bishop(this, sideToMove);
+					moveString += "B";
 					break;
 				case 3:
 					board[targetRank][targetFile] = new Knight(this, sideToMove);
+					moveString += "K";
 					break;
 				default:
 					loadBackup();
@@ -333,7 +476,22 @@ public class Board implements Iterable<Piece> {
 			switchSides();
 			updatePositions();
 			moveCounter++;
-			this.checkGameOutcome(); // TODO: really weird place for this to be.
+
+			// TODO: really weird place for this to be.
+			switch (this.checkGameOutcome()) {
+			case CHECK:
+				moveString += "+";
+				break;
+			case CHECKMATE:
+				moveString += "#";
+				break;
+			default:
+				break;
+
+			}
+			moveHistory.add(moveString);
+
+//			System.out.println(this.getMovesInAListDisplayableForOnlyMyGUINotVeryGeneralizedPrettyBadMethodIfAllTheMethodsWerentJustAsBad());
 
 			return true;
 		} else {
@@ -359,6 +517,8 @@ public class Board implements Iterable<Piece> {
 		loadBackup();
 		return status;
 	}
+	// This method is kinda useless. We might as well find the piece at this tile,
+	// and then generate its valid moves and review that board instead.
 
 	private boolean moveHelper(int originRank, int originFile, int targetRank, int targetFile) {
 
@@ -432,8 +592,26 @@ public class Board implements Iterable<Piece> {
 
 	}
 
-	private void switchSides() {
+	/**
+	 * Switches the side of whose turn it is to move on the board without having to
+	 * make a move.
+	 * <p>
+	 * Please do not use this on the actual board, as it will mess things up.
+	 * Rather, you can use this method on a copy of the board so you can switch
+	 * sides to get information about the state of the board.
+	 */
+	public void switchSides() {
 		sideToMove = (sideToMove == Side.WHITE) ? Side.BLACK : Side.WHITE;
+	}
+
+	public List<Piece> getAllPieces(Side side) {
+		List<Piece> all = new ArrayList<>();
+		for (Piece p : this) {
+			if (p != null && p.getSide() == side) {
+				all.add(p);
+			}
+		}
+		return all;
 	}
 
 	/**
@@ -452,8 +630,13 @@ public class Board implements Iterable<Piece> {
 		return false;
 	}
 
+	// TODO: is this even a good idea??
 	public enum GameState {
-		NORMAL, CHECKMATE, STALEMATE, DRAW;
+		NORMAL, CHECK, CHECKMATE, STALEMATE, DRAW;
+
+		public boolean gameMustStop() {
+			return (this == CHECKMATE || this == STALEMATE);
+		}
 	}
 
 	/**
@@ -461,23 +644,18 @@ public class Board implements Iterable<Piece> {
 	 * 
 	 * <p>
 	 * 
-	 * This method also has a side effect of announcing via a GUI popup that a
-	 * checkmate or stalemate has occurred.
+	 * 
 	 * 
 	 * @return NORMAL if the game is fine, CHECKMATE if there has been a checkmate,
-	 *         STALEMATE if the side to move has no legal moves.
+	 *         CHECK if in check, STALEMATE if the side to move has no legal moves.
 	 */
 	public GameState checkGameOutcome() {
 		if (checkForLegalMoves()) {
-			return GameState.NORMAL;
+			return isInCheck() ? GameState.CHECK : GameState.NORMAL;
 		} else {
 			if (isInCheck()) {
-				JOptionPane.showMessageDialog(new JFrame(), sideToMove + " has been checkmated!", "Checkmate!",
-						JOptionPane.PLAIN_MESSAGE);
 				return GameState.CHECKMATE;
 			} else {
-				JOptionPane.showMessageDialog(new JFrame(), "Stalemate. Neither side wins.", "Stalemate!",
-						JOptionPane.PLAIN_MESSAGE);
 				return GameState.STALEMATE;
 			}
 		}
@@ -512,9 +690,19 @@ public class Board implements Iterable<Piece> {
 		return toString;
 	}
 
-	private Piece[][] getBoard() {
-		// TODO: avoid privacy leak
-		return this.board;
+	// TODO: this method is strange, and should be handled on the GUI end
+	public String getMovesInAListDisplayableForOnlyMyGUINotVeryGeneralizedPrettyBadMethodIfAllTheMethodsWerentJustAsBad() {
+		int i = 1;
+		String finalString = "";
+		Iterator<String> it = this.moveHistory.iterator();
+		while (it.hasNext()) {
+			finalString += " " + i + ". " + it.next(); // was :
+			if (it.hasNext()) {
+				finalString += " " + it.next() + " "; // was \t \n
+			}
+			i++;
+		}
+		return finalString;
 	}
 
 	/**
@@ -528,7 +716,6 @@ public class Board implements Iterable<Piece> {
 	 */
 	@Override
 	public Iterator<Piece> iterator() {
-
 		List<Piece> a = new ArrayList<>();
 		// oh dear
 		for (Piece[] p1 : board) {
@@ -536,7 +723,6 @@ public class Board implements Iterable<Piece> {
 				a.add(p);
 			}
 		}
-
 		return a.iterator();
 
 	}

@@ -5,9 +5,6 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 
-import pieces.Piece;
-import pieces.Side;
-
 /**
  * A collection displaying possible moves for a chess piece on the chess board.
  * <p>
@@ -22,6 +19,10 @@ import pieces.Side;
 public class Moveset implements Iterable<Integer> {
 
 	Move[][] board;
+	
+	/*
+	 * We plan to replace this with a single integer using bitwise operations, as that is easier to keep track of "inherited" movements.
+	 */
 
 	/**
 	 * Types of board moves that a piece can make.
@@ -30,25 +31,33 @@ public class Moveset implements Iterable<Integer> {
 	 *
 	 */
 	public enum Move {
-		MOVE(true), DOUBLE_MOVE(true), CAPTURE(true), CHECK(true), PROTECT(false), CASTLE(true), ILLEGAL(false), PROMOTE(true), CAPTURE_EN_PASSANT(true);
+		MOVE(true, true), DOUBLE_MOVE(true, true), CAPTURE(true, false), CHECK(true, false), PROTECT(false, false), CASTLE(true, false), ILLEGAL(false, false), PROMOTE(true, true), CAPTURE_EN_PASSANT(true, false);
 		
 		/**
 		 * Whether or not the type of move can be made or if the movement is a marker for something else.
 		 */
-		private boolean legality;
+		private boolean legalMove;
+		private boolean strictlyMovement;
+		private boolean captureMove;// TODO??
+		private boolean protection;	// TODO??
 		
-		private Move(boolean legality) {
-			this.legality = legality;
+		private Move(boolean legality, boolean strictly) {
+			this.legalMove = legality;
+			this.strictlyMovement = strictly;
 		}
 		
 		public boolean isLegal() {
-			return this.legality;
+			return this.legalMove;
+		}
+		
+		public boolean isStrictlyMovement() {
+			return strictlyMovement;
 		}
 		
 		
 		@Override
 		public String toString() {
-			return legality == true ? "Y" : "N";
+			return legalMove == true ? "Y" : "N";
 		}
 	}
 
